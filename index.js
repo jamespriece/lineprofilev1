@@ -43,12 +43,15 @@ async function getLineProfile(channelAccessToken) {
   };
 }
 
-// ส่งแจ้งเตือนผ่าน Telegram
 async function sendTelegram(botToken, chatId, message) {
-  await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    chat_id: chatId,
-    text: message
-  });
+  try {
+    await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      chat_id: chatId,
+      text: message
+    });
+  } catch (err) {
+    console.error("❌ Error sending Telegram message:", err.response?.data || err.message);
+  }
 }
 
 async function checkAllAccounts() {
