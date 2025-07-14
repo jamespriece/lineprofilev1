@@ -93,3 +93,11 @@ async function checkAllAccounts() {
   }
 }
 
+// Run check every 10 minutes
+cron.schedule('*/10 * * * *', () => {
+  console.log('🔁 ตรวจสอบ LINE OA...');
+  checkAllAccounts();
+});
+
+// Run immediately on start
+checkAllAccounts();
