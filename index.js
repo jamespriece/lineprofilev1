@@ -1,24 +1,24 @@
 const axios = require('axios');
 const fs = require('fs');
-const cron = require('node-cron');
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 const config = require('./config.json');
 
-// Simple home route to keep Render awake
+// Simple home route
 app.get('/', (req, res) => {
   res.send('✅ LINE OA Monitor Web Server is Running');
 });
 
-app.listen(port, () => {
-  console.log(`✅ Web server started on port ${port}`);
-});
-
+// Route for external cron job to trigger
 app.get('/check', async (req, res) => {
   console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
   await checkAllAccounts();
   res.send('✅ ตรวจสอบแล้ว');
+});
+
+app.listen(port, () => {
+  console.log(`✅ Web server started on port ${port}`);
 });
 
 // Load previous profile
@@ -85,12 +85,3 @@ async function checkAllAccounts() {
     }
   }
 }
-
-// Run check every 10 minutes
-cron.schedule('*/10 * * * *', () => {
-  console.log('🔁 ตรวจสอบ LINE OA ทุก 10 นาที...');
-  checkAllAccounts();
-});
-
-// Run immediately on start
-checkAllAccounts();
