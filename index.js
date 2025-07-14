@@ -81,9 +81,10 @@ async function checkAllAccounts() {
 }
 
 // Run check every 10 minutes
-cron.schedule('*/10 * * * *', () => {
-  console.log('🔁 ตรวจสอบ LINE OA...');
-  checkAllAccounts();
+app.get('/check', async (req, res) => {
+  console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
+  await checkAllAccounts();
+  res.send('✅ ตรวจสอบแล้ว');
 });
 
 // Run immediately on start
