@@ -43,6 +43,7 @@ async function getLineProfile(channelAccessToken) {
   };
 }
 
+// ส่งแจ้งเตือนผ่าน Telegram
 async function sendTelegram(botToken, chatId, message) {
   await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     chat_id: chatId,
