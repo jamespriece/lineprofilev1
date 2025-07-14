@@ -15,6 +15,12 @@ app.listen(port, () => {
   console.log(`✅ Web server started on port ${port}`);
 });
 
+app.get('/check', async (req, res) => {
+  console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
+  await checkAllAccounts();
+  res.send('✅ ตรวจสอบแล้ว');
+});
+
 // Load previous profile
 function loadPreviousProfile(accountName) {
   const filename = `lastProfile_${accountName}.json`;
@@ -81,10 +87,9 @@ async function checkAllAccounts() {
 }
 
 // Run check every 10 minutes
-app.get('/check', async (req, res) => {
-  console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
-  await checkAllAccounts();
-  res.send('✅ ตรวจสอบแล้ว');
+cron.schedule('*/10 * * * *', () => {
+  console.log('🔁 ตรวจสอบ LINE OA ทุก 10 นาที...');
+  checkAllAccounts();
 });
 
 // Run immediately on start
