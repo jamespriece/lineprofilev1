@@ -5,12 +5,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 const config = require('./config.json');
 
-// Simple home route
 app.get('/', (req, res) => {
   res.send('✅ LINE OA Monitor Web Server is Running');
 });
 
-// Route for external cron job to trigger
 app.get('/check', async (req, res) => {
   console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
   await checkAllAccounts();
@@ -21,14 +19,6 @@ app.listen(port, () => {
   console.log(`✅ Web server started on port ${port}`);
 });
 
-app.get('/check', async (req, res) => {
-  console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
-  await checkAllAccounts();
-  res.send('✅ ตรวจสอบแล้ว');
-});
-
-
-// Load previous profile
 function loadPreviousProfile(accountName) {
   const filename = `lastProfile_${accountName}.json`;
   if (!fs.existsSync(filename)) return {};
@@ -36,13 +26,11 @@ function loadPreviousProfile(accountName) {
   return JSON.parse(raw);
 }
 
-// Save current profile
 function saveProfile(accountName, profile) {
   const filename = `lastProfile_${accountName}.json`;
   fs.writeFileSync(filename, JSON.stringify(profile, null, 2));
 }
 
-// Get Line profile info
 async function getLineProfile(channelAccessToken) {
   const res = await axios.get('https://api.line.me/v2/bot/info', {
     headers: {
@@ -55,7 +43,6 @@ async function getLineProfile(channelAccessToken) {
   };
 }
 
-// Send Telegram message
 async function sendTelegram(botToken, chatId, message) {
   await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     chat_id: chatId,
@@ -63,7 +50,6 @@ async function sendTelegram(botToken, chatId, message) {
   });
 }
 
-// Check accounts
 async function checkAllAccounts() {
   for (const account of config.accounts) {
     try {
@@ -92,12 +78,3 @@ async function checkAllAccounts() {
     }
   }
 }
-
-// Run check every 10 minutes
-cron.schedule('*/10 * * * *', () => {
-  console.log('🔁 ตรวจสอบ LINE OA...');
-  checkAllAccounts();
-});
-
-// Run immediately on start
-checkAllAccounts();
