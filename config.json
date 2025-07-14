@@ -1,0 +1,10 @@
+{
+  "accounts": [
+    {
+      "name": "บัญชี A",
+      "channelAccessToken": "LINE_CHANNEL_ACCESS_TOKEN",
+      "telegramBotToken": "TELEGRAM_BOT_TOKEN",
+      "telegramChatId": "TELEGRAM_CHAT_ID"
+    }
+  ]
+}
