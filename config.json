@@ -10,7 +10,7 @@
       "name": "บัญชี B",
       "channelAccessToken": "LINE_CHANNEL_ACCESS_TOKEN_B",
       "telegramBotToken": "TELEGRAM_BOT_TOKEN_B",
-      "telegramChatId": "-0"
+      "telegramChatId": "TELEGRAM_BO"
     }
   ]
 }
