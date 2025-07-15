@@ -77,13 +77,20 @@ async function checkAllAccounts() {
         changes.push(`🖼️ รูปโปรไฟล์มีการเปลี่ยนแปลง`);
       }
 
+      
       if (changes.length > 0) {
-        const msg = `📢 [${account.name}] พบการเปลี่ยนแปลง:\n${changes.join('\n')}`;
+        const msg = `📢 [${account.name}] พบการเปลี่ยนแปลง:
+${changes.join('
+')}`;
         await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
         saveProfile(account.name, current);
         console.log(`✅ แจ้งเตือนแล้ว: ${account.name}`);
       } else {
+        const msg = `✅ [${account.name}] ตรวจสอบแล้ว: ไม่พบการเปลี่ยนแปลง`;
+        await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
         console.log(`✅ ไม่มีการเปลี่ยนแปลง: ${account.name}`);
+      }
+`);
       }
     } catch (err) {
       console.error(`❌ [${account.name}] เกิดข้อผิดพลาด:`, err.response?.data || err.message);
