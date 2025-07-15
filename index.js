@@ -15,6 +15,14 @@ app.get('/check', async (req, res) => {
   res.send('✅ ตรวจสอบแล้ว');
 });
 
+app.get('/test', async (req, res) => {
+  for (const account of config.accounts) {
+    const msg = `🔔 [${account.name}] ทดสอบการแจ้งเตือน Telegram สำเร็จแล้ว`;
+    await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
+  }
+  res.send('✅ ส่งข้อความทดสอบแล้ว');
+});
+
 app.listen(port, () => {
   console.log(`✅ Web server started on port ${port}`);
 });
