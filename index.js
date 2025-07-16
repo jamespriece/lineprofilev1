@@ -69,6 +69,14 @@ async function checkAllAccounts() {
       const previous = loadPreviousProfile(account.name);
       let changes = [];
 
+      if (account.expectedName && current.displayName !== account.expectedName) {
+        changes.push(`❌ ชื่อไม่ตรง: ปัจจุบัน "${current.displayName}" ควรเป็น "${account.expectedName}"`);
+      }
+
+      if (account.expectedPictureUrl && current.pictureUrl !== account.expectedPictureUrl) {
+        changes.push(`❌ รูปไม่ตรงกับที่กำหนด`);
+      }
+
       if (current.displayName !== previous.displayName) {
         changes.push(`🔤 ชื่อเปลี่ยนจาก "${previous.displayName || 'ไม่พบ'}" → "${current.displayName}"`);
       }
@@ -78,12 +86,13 @@ async function checkAllAccounts() {
       }
 
       if (changes.length > 0) {
-        const msg = `📢 [${account.name}] พบการเปลี่ยนแปลง:${changes.join('')}`;
+        const msg = `📢 [${account.name}] พบปัญหา:
+${changes.join('\n')}`;
         await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
         saveProfile(account.name, current);
         console.log(`✅ แจ้งเตือนแล้ว: ${account.name}`);
       } else {
-        const msg = `✅ [${account.name}] ตรวจสอบแล้ว: ไม่พบการเปลี่ยนแปลง`;
+        const msg = `✅ [${account.name}] ตรวจสอบแล้ว: ถูกต้องตามที่กำหนด`;
         await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
         console.log(`✅ ไม่มีการเปลี่ยนแปลง: ${account.name}`);
       }
