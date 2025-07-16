@@ -79,7 +79,7 @@ async function checkAllAccounts() {
 
       if (changes.length > 0) {
         const msg = `📢 [${account.name}] พบการเปลี่ยนแปลง:
-${changes.join('
+${changes.join('\n
 ')}`;
         await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
         saveProfile(account.name, current);
