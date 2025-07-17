@@ -1,12 +1,13 @@
 const axios = require('axios');
 const fs = require('fs');
+const crypto = require('crypto');
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 const config = require('./config.json');
 
 app.get('/', (req, res) => {
-  res.send('✅ LINE OA Monitor Web Server is Running');
+  res.send('✅ LINE OA Monitor with Image Comparison is Running');
 });
 
 app.get('/check', async (req, res) => {
@@ -39,7 +40,7 @@ function saveProfile(accountName, profile) {
   fs.writeFileSync(filename, JSON.stringify(profile, null, 2));
 }
 
-async function getLineProfile(channelAccessToken) {
+async function getLineBotInfo(channelAccessToken) {
   const res = await axios.get('https://api.line.me/v2/bot/info', {
     headers: {
       Authorization: `Bearer ${channelAccessToken}`
@@ -47,8 +48,17 @@ async function getLineProfile(channelAccessToken) {
   });
   return {
     displayName: res.data.displayName,
-    pictureUrl: res.data.pictureUrl
+    pictureUrl: res.data.pictureUrl || null
   };
+}
+
+async function downloadImage(url) {
+  const response = await axios.get(url, { responseType: 'arraybuffer' });
+  return response.data;
+}
+
+function hashBuffer(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
 async function sendTelegram(botToken, chatId, message) {
@@ -65,39 +75,44 @@ async function sendTelegram(botToken, chatId, message) {
 async function checkAllAccounts() {
   for (const account of config.accounts) {
     try {
-      const current = await getLineProfile(account.channelAccessToken);
+      const current = await getLineBotInfo(account.channelAccessToken);
       const previous = loadPreviousProfile(account.name);
       let changes = [];
 
-      changes.push(`📸 รูปปัจจุบัน: ${current.pictureUrl}`);
-
+      // ตรวจสอบชื่อ
       if (account.expectedName && current.displayName !== account.expectedName) {
         changes.push(`❌ ชื่อไม่ตรง: ปัจจุบัน "${current.displayName}" ควรเป็น "${account.expectedName}"`);
       }
 
-      if (account.expectedPictureUrl && current.pictureUrl !== account.expectedPictureUrl) {
-        changes.push(`❌ รูปไม่ตรงกับที่กำหนด`);
-      }
+      // ตรวจสอบรูปโปรไฟล์ด้วยการดาวน์โหลดแล้วเทียบ hash
+      if (account.expectedPictureUrl && current.pictureUrl) {
+        try {
+          const currentImg = await downloadImage(current.pictureUrl);
+          const expectedImg = await downloadImage(account.expectedPictureUrl);
 
-      if (current.displayName !== previous.displayName) {
-        changes.push(`🔤 ชื่อเปลี่ยนจาก "${previous.displayName || 'ไม่พบ'}" → "${current.displayName}"`);
-      }
+          const currentHash = hashBuffer(currentImg);
+          const expectedHash = hashBuffer(expectedImg);
 
-      if (current.pictureUrl !== previous.pictureUrl) {
-        changes.push(`🖼️ รูปโปรไฟล์มีการเปลี่ยนแปลง`);
-      }
-
-      if (changes.length > 0) {
-        const msg = `📢 [${account.name}] พบปัญหา:
-${changes.join('\n')}`;
-        await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
-        saveProfile(account.name, current);
-        console.log(`✅ แจ้งเตือนแล้ว: ${account.name}`);
+          if (currentHash !== expectedHash) {
+            changes.push(`❌ รูป LINE OA ไม่ตรงกับที่กำหนด`);
+          } else {
+            changes.push(`✅ รูปตรงกัน (hash: ${currentHash.slice(0, 10)}...)`);
+          }
+        } catch (err) {
+          changes.push(`⚠️ ไม่สามารถเปรียบเทียบรูปได้: ${err.message}`);
+        }
       } else {
-        const msg = `✅ [${account.name}] ตรวจสอบแล้ว: ถูกต้องตามที่กำหนด`;
-        await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
-        console.log(`✅ ไม่มีการเปลี่ยนแปลง: ${account.name}`);
+        changes.push(`⚠️ ไม่พบ URL รูปจาก LINE OA`);
       }
+
+      if (current.displayName !== previous.displayName || current.pictureUrl !== previous.pictureUrl) {
+        saveProfile(account.name, current);
+      }
+
+      const msg = `📢 [${account.name}]
+${changes.join('\n')}`;
+      await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
+      console.log(`✅ ตรวจสอบแล้ว: ${account.name}`);
     } catch (err) {
       console.error(`❌ [${account.name}] เกิดข้อผิดพลาด:`, err.response?.data || err.message);
     }
