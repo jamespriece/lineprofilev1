@@ -69,6 +69,8 @@ async function checkAllAccounts() {
       const previous = loadPreviousProfile(account.name);
       let changes = [];
 
+      changes.push(`📸 รูปปัจจุบัน: ${current.pictureUrl}`);
+
       if (account.expectedName && current.displayName !== account.expectedName) {
         changes.push(`❌ ชื่อไม่ตรง: ปัจจุบัน "${current.displayName}" ควรเป็น "${account.expectedName}"`);
       }
