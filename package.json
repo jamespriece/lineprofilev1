@@ -1,7 +1,7 @@
 {
-  "name": "line-profile-monitor-phash-multi",
-  "version": "1.1.0",
-  "description": "LINE OA Monitor with pHash, auto-save expected picture, and multi-account support",
+  "name": "line-profile-monitor-phash-auto",
+  "version": "1.2.0",
+  "description": "LINE OA Monitor with pHash, auto-save expected picture, multi-account support, and configurable interval",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
