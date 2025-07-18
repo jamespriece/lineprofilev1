@@ -1,44 +1,25 @@
+
 const axios = require('axios');
 const fs = require('fs');
-const crypto = require('crypto');
 const express = require('express');
+const imageHash = require('image-hash');
 const app = express();
 const port = process.env.PORT || 3000;
 const config = require('./config.json');
 
 app.get('/', (req, res) => {
-  res.send('✅ LINE OA Monitor with Image Comparison is Running');
+  res.send('✅ LINE OA Monitor with pHash and multi-account support is Running');
 });
 
 app.get('/check', async (req, res) => {
   console.log(`[HTTP] เรียกตรวจสอบจาก /check`);
   await checkAllAccounts();
-  res.send('✅ ตรวจสอบแล้ว');
-});
-
-app.get('/test', async (req, res) => {
-  for (const account of config.accounts) {
-    const msg = `🔔 [${account.name}] ทดสอบการแจ้งเตือน Telegram สำเร็จแล้ว`;
-    await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
-  }
-  res.send('✅ ส่งข้อความทดสอบแล้ว');
+  res.send('✅ ตรวจสอบแล้ว (ทุกบัญชี)');
 });
 
 app.listen(port, () => {
   console.log(`✅ Web server started on port ${port}`);
 });
-
-function loadPreviousProfile(accountName) {
-  const filename = `lastProfile_${accountName}.json`;
-  if (!fs.existsSync(filename)) return {};
-  const raw = fs.readFileSync(filename);
-  return JSON.parse(raw);
-}
-
-function saveProfile(accountName, profile) {
-  const filename = `lastProfile_${accountName}.json`;
-  fs.writeFileSync(filename, JSON.stringify(profile, null, 2));
-}
 
 async function getLineBotInfo(channelAccessToken) {
   const res = await axios.get('https://api.line.me/v2/bot/info', {
@@ -52,13 +33,31 @@ async function getLineBotInfo(channelAccessToken) {
   };
 }
 
-async function downloadImage(url) {
-  const response = await axios.get(url, { responseType: 'arraybuffer' });
-  return response.data;
+function hashImageFromUrl(url) {
+  return new Promise((resolve, reject) => {
+    imageHash.hash(url, 16, 'hex', (error, hash) => {
+      if (error) reject(error);
+      else resolve(hash);
+    });
+  });
 }
 
-function hashBuffer(buffer) {
-  return crypto.createHash('sha256').update(buffer).digest('hex');
+function hammingDistance(hash1, hash2) {
+  let distance = 0;
+  for (let i = 0; i < hash1.length; i++) {
+    if (hash1[i] !== hash2[i]) distance++;
+  }
+  return distance;
+}
+
+function saveExpectedPicture(accountName, pictureUrl) {
+  const filename = `expectedPicture_${accountName}.json`;
+  const data = {
+    pictureUrl: pictureUrl,
+    savedAt: new Date().toISOString()
+  };
+  fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+  console.log(`📸 เซฟรูป expected สำหรับ ${accountName} แล้ว`);
 }
 
 async function sendTelegram(botToken, chatId, message) {
@@ -75,44 +74,41 @@ async function sendTelegram(botToken, chatId, message) {
 async function checkAllAccounts() {
   for (const account of config.accounts) {
     try {
+      console.log(`
+🔄 ตรวจสอบบัญชี: ${account.name}`);
       const current = await getLineBotInfo(account.channelAccessToken);
-      const previous = loadPreviousProfile(account.name);
       let changes = [];
 
-      // ตรวจสอบชื่อ
-      if (account.expectedName && current.displayName !== account.expectedName) {
-        changes.push(`❌ ชื่อไม่ตรง: ปัจจุบัน "${current.displayName}" ควรเป็น "${account.expectedName}"`);
-      }
+      let expectedPictureUrl;
+      const expectedFile = `expectedPicture_${account.name}.json`;
 
-      // ตรวจสอบรูปโปรไฟล์ด้วยการดาวน์โหลดแล้วเทียบ hash
-      if (account.expectedPictureUrl && current.pictureUrl) {
-        try {
-          const currentImg = await downloadImage(current.pictureUrl);
-          const expectedImg = await downloadImage(account.expectedPictureUrl);
-
-          const currentHash = hashBuffer(currentImg);
-          const expectedHash = hashBuffer(expectedImg);
-
-          if (currentHash !== expectedHash) {
-            changes.push(`❌ รูป LINE OA ไม่ตรงกับที่กำหนด`);
-          } else {
-            changes.push(`✅ รูปตรงกัน (hash: ${currentHash.slice(0, 10)}...)`);
-          }
-        } catch (err) {
-          changes.push(`⚠️ ไม่สามารถเปรียบเทียบรูปได้: ${err.message}`);
-        }
+      if (fs.existsSync(expectedFile)) {
+        const expectedData = JSON.parse(fs.readFileSync(expectedFile));
+        expectedPictureUrl = expectedData.pictureUrl;
       } else {
-        changes.push(`⚠️ ไม่พบ URL รูปจาก LINE OA`);
+        // Save expected picture automatically
+        saveExpectedPicture(account.name, current.pictureUrl);
+        expectedPictureUrl = current.pictureUrl;
+        changes.push(`📸 เซฟรูป expected อัตโนมัติ`);
       }
 
-      if (current.displayName !== previous.displayName || current.pictureUrl !== previous.pictureUrl) {
-        saveProfile(account.name, current);
+      // Compare pHash
+      const expectedHash = await hashImageFromUrl(expectedPictureUrl);
+      const currentHash = await hashImageFromUrl(current.pictureUrl);
+      const distance = hammingDistance(expectedHash, currentHash);
+      const similarity = ((1 - distance / (expectedHash.length * 4)) * 100).toFixed(2);
+
+      if (similarity < 95) {
+        changes.push(`❌ รูปเปลี่ยน (ความเหมือน ${similarity}%)`);
+      } else {
+        changes.push(`✅ รูปเหมือนกัน (ความเหมือน ${similarity}%)`);
       }
 
       const msg = `📢 [${account.name}]
 ${changes.join('\n')}`;
       await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
       console.log(`✅ ตรวจสอบแล้ว: ${account.name}`);
+
     } catch (err) {
       console.error(`❌ [${account.name}] เกิดข้อผิดพลาด:`, err.response?.data || err.message);
     }
