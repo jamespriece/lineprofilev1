@@ -1,4 +1,5 @@
 {
+  "checkIntervalMinutes": 5,
   "accounts": [
     {
       "name": "FLOW168 Cash 1",
