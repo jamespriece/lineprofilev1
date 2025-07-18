@@ -2,13 +2,14 @@
 const axios = require('axios');
 const fs = require('fs');
 const express = require('express');
-const imageHash = require('image-hash');
+const sharp = require('sharp');
+const blockhash = require('blockhash-core');
 const app = express();
 const port = process.env.PORT || 3000;
 const config = require('./config.json');
 
 app.get('/', (req, res) => {
-  res.send('✅ LINE OA Monitor with pHash, auto-save expected picture, multi-account support, and configurable interval is Running');
+  res.send('✅ LINE OA Monitor with sharp + blockhash-core and multi-account support is Running');
 });
 
 app.get('/check', async (req, res) => {
@@ -33,13 +34,20 @@ async function getLineBotInfo(channelAccessToken) {
   };
 }
 
-function hashImageFromUrl(url) {
-  return new Promise((resolve, reject) => {
-    imageHash.hash(url, 16, 'hex', (error, hash) => {
-      if (error) reject(error);
-      else resolve(hash);
-    });
-  });
+async function hashImageFromUrl(url) {
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const imgBuffer = Buffer.from(response.data);
+
+    const image = sharp(imgBuffer);
+    const { data, info } = await image.raw().ensureAlpha().toBuffer({ resolveWithObject: true });
+
+    const hash = blockhash.bmvbhash(data, info.width, info.height, 16);
+    return hash;
+  } catch (error) {
+    console.error(`❌ Error hashing image from URL: ${url}`, error.message);
+    throw error;
+  }
 }
 
 function hammingDistance(hash1, hash2) {
@@ -73,11 +81,11 @@ async function sendTelegram(botToken, chatId, message) {
 
 async function checkAllAccounts() {
   for (const account of config.accounts) {
+    let changes = [];
     try {
       console.log(`
 🔄 ตรวจสอบบัญชี: ${account.name}`);
       const current = await getLineBotInfo(account.channelAccessToken);
-      let changes = [];
 
       let expectedPictureUrl;
       const expectedFile = `expectedPicture_${account.name}.json`;
@@ -92,29 +100,31 @@ async function checkAllAccounts() {
         changes.push(`📸 เซฟรูป expected อัตโนมัติ`);
       }
 
-      // Compare pHash
-      const expectedHash = await hashImageFromUrl(expectedPictureUrl);
-      const currentHash = await hashImageFromUrl(current.pictureUrl);
-      const distance = hammingDistance(expectedHash, currentHash);
-      const similarity = ((1 - distance / (expectedHash.length * 4)) * 100).toFixed(2);
+      try {
+        // Compare pHash
+        const expectedHash = await hashImageFromUrl(expectedPictureUrl);
+        const currentHash = await hashImageFromUrl(current.pictureUrl);
+        const distance = hammingDistance(expectedHash, currentHash);
+        const similarity = ((1 - distance / (expectedHash.length * 4)) * 100).toFixed(2);
 
-      if (similarity < 95) {
-        changes.push(`❌ รูปเปลี่ยน (ความเหมือน ${similarity}%)`);
-      } else {
-        changes.push(`✅ รูปเหมือนกัน (ความเหมือน ${similarity}%)`);
+        if (similarity < 95) {
+          changes.push(`❌ รูปเปลี่ยน (ความเหมือน ${similarity}%)`);
+        } else {
+          changes.push(`✅ รูปเหมือนกัน (ความเหมือน ${similarity}%)`);
+        }
+      } catch (hashErr) {
+        changes.push(`⚠️ ไม่สามารถตรวจสอบรูปได้: ${hashErr.message}`);
       }
-
+    } catch (err) {
+      changes.push(`❌ เกิดข้อผิดพลาด: ${err.response?.data || err.message}`);
+    } finally {
       if (changes.length === 0) {
         changes.push(`ℹ️ ไม่มีการเปลี่ยนแปลง`);
       }
-
       const msg = `📢 [${account.name}]
 ${changes.join('\n')}`;
       await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
       console.log(`✅ ตรวจสอบแล้ว: ${account.name}`);
-
-    } catch (err) {
-      console.error(`❌ [${account.name}] เกิดข้อผิดพลาด:`, err.response?.data || err.message);
     }
   }
 }
