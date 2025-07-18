@@ -1,7 +1,7 @@
 {
-  "name": "line-profile-monitor-phash-fixed",
-  "version": "1.3.0",
-  "description": "LINE OA Monitor with sharp + blockhash-core, multi-account support, and always send Telegram notifications",
+  "name": "line-profile-monitor-phash-render",
+  "version": "1.3.1",
+  "description": "LINE OA Monitor with sharp + blockhash-core (for Render), multi-account support, and always send Telegram notifications",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,6 +10,9 @@
     "axios": "^1.6.0",
     "express": "^4.18.2",
     "sharp": "^0.33.2",
-    "blockhash-core": "^2.0.1"
+    "blockhash-core": "^1.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
