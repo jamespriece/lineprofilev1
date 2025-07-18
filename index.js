@@ -8,7 +8,7 @@ const port = process.env.PORT || 3000;
 const config = require('./config.json');
 
 app.get('/', (req, res) => {
-  res.send('✅ LINE OA Monitor with pHash and multi-account support is Running');
+  res.send('✅ LINE OA Monitor with pHash, auto-save expected picture, multi-account support, and configurable interval is Running');
 });
 
 app.get('/check', async (req, res) => {
@@ -104,6 +104,10 @@ async function checkAllAccounts() {
         changes.push(`✅ รูปเหมือนกัน (ความเหมือน ${similarity}%)`);
       }
 
+      if (changes.length === 0) {
+        changes.push(`ℹ️ ไม่มีการเปลี่ยนแปลง`);
+      }
+
       const msg = `📢 [${account.name}]
 ${changes.join('\n')}`;
       await sendTelegram(account.telegramBotToken, account.telegramChatId, msg);
@@ -114,3 +118,15 @@ ${changes.join('\n')}`;
     }
   }
 }
+
+// 🕒 ตั้งเวลาเช็คอัตโนมัติ (configurable)
+const intervalMs = config.checkIntervalMinutes * 60 * 1000;
+console.log(`⏱️ ระบบจะตรวจสอบทุก ${config.checkIntervalMinutes} นาที`);
+setInterval(() => {
+  console.log(`
+⏳ เริ่มการตรวจสอบอัตโนมัติ`);
+  checkAllAccounts();
+}, intervalMs);
+
+// เรียกตรวจสอบทันทีเมื่อเริ่มต้น
+checkAllAccounts();
